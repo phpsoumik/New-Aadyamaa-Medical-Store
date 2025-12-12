@@ -1,0 +1,83 @@
+export interface IBranch {
+    storeID: string;
+    isAdmin: string;
+    storeCode: string;
+    mallName: string;
+    telephoneNo: string;
+    contactNo: string;
+    address: string;
+    city: string;
+    region: string;
+    province: string;
+    country: string;
+    postalCode: string;
+    ll: string;
+    costCenter: string;
+    regularWeeklyHrs: number;
+    regularDailyHrs: number;
+    statholidayRate: number;
+    overTimeRate: number;
+    storeOpeningDate: string;
+    sqft: string;
+    taxCriteria: string;
+    gstSalesTax: number;
+    qstPstTax: number;
+    emailAddress: string;
+    password: string;
+    taxNo: string;
+    overTime: number;
+    birthDay: number;
+    statHoliday: number;
+    statWork: number;
+    meetCon: number;
+    personal: number;
+    sickHrs: number;
+    vacations: number;
+    breavmt: number;
+    training: number;
+    enableSms: string;
+    status: string;
+}
+
+
+export class BranchDTO implements IBranch
+{
+    storeID: string = '';
+    isAdmin: string = '';
+    storeCode: string = '';
+    mallName: string = '';
+    telephoneNo: string = '';
+    contactNo: string = '';
+    address: string = '';
+    city: string = '';
+    region: string = '';
+    province: string = '';
+    country: string = '';
+    postalCode: string = '';
+    ll: string = '';
+    costCenter: string = '';
+    regularWeeklyHrs: number = 0;
+    regularDailyHrs: number = 0;
+    statholidayRate: number = 0;
+    overTimeRate: number = 0;
+    storeOpeningDate: string = '';
+    sqft: string = '';
+    taxCriteria: string = '';
+    gstSalesTax: number = 0;
+    qstPstTax: number = 0;
+    emailAddress: string = '';
+    password: string = '';
+    taxNo: string = '';
+    overTime: number = 0;
+    birthDay: number = 0;
+    statHoliday: number = 0;
+    statWork: number = 0;
+    meetCon: number = 0;
+    personal: number = 0;
+    sickHrs: number = 0;
+    vacations: number = 0;
+    breavmt: number = 0;
+    training: number = 0;
+    enableSms: string = '';
+    status: string = '';
+}

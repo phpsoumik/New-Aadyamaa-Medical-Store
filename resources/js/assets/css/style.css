@@ -1,0 +1,201 @@
+
+@font-face {
+    src: url("../fonts/Muli-Black.ttf");
+    src: url("../fonts/Muli-BlackItalic.ttf");
+    src: url("../fonts/Muli-BoldItalic.ttf");
+    src: url("../fonts/Muli-ExtraBold.ttf");
+    src: url("../fonts/Muli-ExtraLight.ttf");
+    src: url("../fonts/Muli-ExtraLightItalic.ttf");
+    src: url("../fonts/Muli-Light.ttf");
+    /* src: url("../fonts/Muli-Italic.ttf"); */
+    /* src: url("../fonts/Muli-LightItalic.ttf"); */
+    src: url("../fonts/Muli-Regular.ttf");
+    src: url("../fonts/Muli-Medium.ttf");
+    /* src: url("../fonts/Muli-MediumItalic.ttf"); */
+    src: url("../fonts/Muli-SemiBold.ttf");
+    /* src: url("../fonts/Muli-SemiBoldItalic.ttf"); */
+    font-family: Muli;
+}
+
+
+*{
+    margin: 0;
+    padding: 0;
+}
+
+
+::-webkit-scrollbar {
+    width: 5px;
+    height: 12px;
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0);
+}
+
+
+/*add a shadow to the scrollbar here*/
+
+::-webkit-scrollbar-track {
+    box-shadow: inset 0 0 0px rgba(0, 0, 0, 0);
+}
+
+
+/*this is the little scrolly dealio in the bar*/
+
+::-webkit-scrollbar-thumb {
+    background: #999;
+    height: 3px;
+}
+
+
+/*nobody needs this little scrollbar corner, I mean really, get rid of it haha*/
+
+ ::-webkit-scrollbar-corner {
+    display: none;
+    height: 0px;
+    width: 0px;
+}
+
+
+body {
+    font-size: 14px;
+    color: #68686b;
+    font-family: 'Muli', sans-serif;
+    font-weight: 400;
+    height: 100%;
+}
+
+.p-button-primary
+{
+    background: #1a5692 !important;
+}
+
+.nav-item
+{
+    background-color: #eee;
+    border-radius: 5px;
+    text-align:center;
+}
+
+
+.p-datatable .p-datatable-thead > tr > th{
+    font-weight: 500;
+    background-color: #1a5692;
+    color: #fff;
+    font-size: 14px;
+}
+
+.p-datatable.p-datatable-sm .p-datatable-tbody > tr > td
+{
+    padding: 0 0.5rem;
+    font-size: 14px;
+}
+
+.app-container {
+    min-height: 85vh;
+    padding: 5px;
+}
+
+.p-breadcrumb
+{
+    background-color: transparent;
+    border: none;
+}
+
+.p-datatable-scrollable-header-box
+{
+    padding: 0px !important;
+}
+
+.p-toolbar {
+    padding: 0.2rem 0.5rem;
+}
+
+.p-dialog .p-dialog-header
+{
+    padding: 0.4rem;
+    background-color: #f7f7f7;
+}
+
+.p-dialog .p-dialog-footer
+{
+    padding: 0.4rem;
+    background-color: #f7f7f7;
+}
+
+
+.checkout-heading {
+    background-color: #004C97;
+    color: #fff;
+    padding: 5px;
+    font-size: 16px;
+    width: 100%;
+    display: block;
+    margin: 0;
+}
+
+.checkout-heading:hover {
+    cursor: pointer;
+}
+
+.input-lg
+{
+    padding: 22px 10px;
+}
+
+.confirmation-content
+{
+    font-size: 20px;
+}
+
+.date-time-clock-hrs-heading {
+    background-color: #004c97;
+    color: #fff;
+    text-align: center;
+    padding: 5px;
+  }
+  .date-time-clock-hrs {
+    background-color: #ccc;
+    color: #000;
+    text-align: center;
+    padding: 10px;
+  }
+  .date-time-clock-hrs:hover {
+    cursor: pointer;
+    background-color: #eee;
+  }
+  
+  .clock-hours-timming {
+    height: 45vh;
+    overflow-y: scroll;
+    margin-bottom: 20px;
+  }
+  
+  .set_the_time_value {
+    font-weight: bold;
+    height: 59px;
+    font-size: 27px;
+    color: #00b100;
+  }
+
+  .redoClass
+  {
+    background-color: yellow;
+  }
+
+  .p-datepicker-group-container
+  {
+    width:100%;
+  }
+
+  .tiles-desc
+  {
+    color: #68686b;
+  }
+  
+  .dash-icons-style
+  {
+    width: 80px;
+    height: auto;
+    
+  }
+
+  
