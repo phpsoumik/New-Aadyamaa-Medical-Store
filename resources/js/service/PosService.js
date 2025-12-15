@@ -22,6 +22,7 @@ export default class PosService {
 	}
 
 	searchItem(keyword) {
+		console.log('PosService searchItem called with keyword:', keyword);
 		//SHOW LOADING
 		const store = useStore();
 		store.dispatch(ActionTypes.PROGRESS_BAR, true);
@@ -35,12 +36,18 @@ export default class PosService {
 				url: api,
 				data: formData,
 			}
-		).then(res => res.data)
-		
-			.catch((e) => ExceptionHandling.HandleErrors(e))
-			.finally(() => {
-				store.dispatch(ActionTypes.PROGRESS_BAR, false);
-			})
+		).then(res => {
+			console.log('Search API response:', res.data);
+			return res.data;
+		})
+		.catch((e) => {
+			console.error('Search API error:', e);
+			ExceptionHandling.HandleErrors(e);
+			return { records: [], error: e.message || 'Search failed' };
+		})
+		.finally(() => {
+			store.dispatch(ActionTypes.PROGRESS_BAR, false);
+		})
 	}
 
 	saveItem(postObj,paymentList, stateObj, savedItemList,counterEntry) {

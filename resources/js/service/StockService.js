@@ -257,4 +257,47 @@ export default class StockService {
 			})
 	}
 
+	// Get pending requested medicines for autocomplete
+	getPendingRequestedMedicines(query) {
+		const store = useStore();
+		store.dispatch(ActionTypes.PROGRESS_BAR, true);
+		const api = '/api/get_pending_requested_medicines';
+		const formData = new FormData();
+		formData.append('query', query);
+		return instance()(
+			{
+				method: 'post',
+				url: api,
+				data: formData,
+			}
+		).then(res => res.data)
+			.catch((e) => ExceptionHandling.HandleErrors(e))
+			.finally(() => {
+				store.dispatch(ActionTypes.PROGRESS_BAR, false);
+			})
+	}
+
+	// Search medicine for new item modal (includes requested items)
+	searchMedicineForNewItem(keyword) {
+		const store = useStore();
+		store.dispatch(ActionTypes.PROGRESS_BAR, true);
+		const api = '/api/search_medicine_for_new_item';
+		const formData = new FormData();
+		formData.append('keyword', keyword);
+		return instance()(
+			{
+				method: 'post',
+				url: api,
+				data: formData,
+			}
+		).then(res => res.data)
+			.catch((e) => {
+				ExceptionHandling.HandleErrors(e);
+				return { records: [] };
+			})
+			.finally(() => {
+				store.dispatch(ActionTypes.PROGRESS_BAR, false);
+			})
+	}
+
 }

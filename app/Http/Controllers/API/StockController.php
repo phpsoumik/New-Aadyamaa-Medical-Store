@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Transaction;
 use App\Models\SubTransaction;
 use App\Models\PosSubReceipt;
+use App\Models\RequestedItem;
+use App\Models\Notification;
 
 //IMPORT
 
@@ -407,6 +409,8 @@ class StockController extends Controller
 
 						$stock->save();
 
+						// Check for pending medicine requests and create notifications
+						$this->checkPendingOrders($stock->product_name, $stock->id);
 
 						$response = response()->json([
 							'alert' => 'info',
@@ -519,51 +523,102 @@ class StockController extends Controller
 		error_log(">>>>ABOUT TO SEARCH ITEMS>>>>");
 		$keyword = $request['keyword'];
 		$keyword2 = str_replace(' ','', $keyword);
+		$branchId = Auth::user()->branch_id;
 
-		/*
-		select `stocks`.*, 
-		`brand`.`option_name` as `bName`, 
-		`brand_sector`.`option_name` as `bSector`, 
-		`category`.`option_name` as `cName`, 
-		`type`.`option_name` as `pType` from `stocks` 
-		inner join `option_tags` as `brand` on `brand`.`id` = `stocks`.`brand` 
-		inner join `option_tags` as `brand_sector` on `brand_sector`.`id` = `stocks`.`brand_sector` 
-		inner join `option_tags` as `category` on `category`.`id` = `stocks`.`category` 
-		inner join `option_tags` as `type` on `type`.`id` = `stocks`.`type` where `stocks`.`branch_id` = 1 and REPLACE('stocks.product_name',' ','') LIKE '%cil%' ;
-		*/
+		try {
+			// Get stock items (in stock)
+			$stocks = DB::table('stocks')
+				->leftJoin('option_tags as brand', 'brand.id', '=', 'stocks.brand')
+				->leftJoin('option_tags as brand_sector', 'brand_sector.id', '=', 'stocks.brand_sector')
+				->leftJoin('option_tags as category', 'category.id', '=', 'stocks.category')
+				->leftJoin('option_tags as type', 'type.id', '=', 'stocks.type')
+				->where('stocks.branch_id', $branchId)
+				->where('stocks.status', 'Active')
+				->where('stocks.qty', '>', 0)
+				->where(function($query) use ($keyword, $keyword2) {
+					$query->whereRaw("REPLACE(stocks.product_name, ' ', '') LIKE ?", [$keyword2 . '%'])
+						  ->orWhere('stocks.barcode', '=', $keyword2)
+						  ->orWhere('stocks.batch_no', '=', $keyword2)
+						  ->orWhere('stocks.product_name', 'LIKE', '%' . $keyword . '%')
+						  ->orWhere('stocks.generic', 'LIKE', '%' . $keyword . '%');
+				})
+				->select(
+					'stocks.*',
+					'brand.option_name as bName',
+					'brand_sector.option_name as bSector',
+					'category.option_name as cName',
+					'type.option_name as pType',
+					DB::raw("'stock' as item_type"),
+					DB::raw("0 as is_requested")
+				)
+				->groupBy('stocks.product_name')
+				->orderBy('stocks.product_name', 'ASC')
+				->limit(20)
+				->get();
 
-		$stocks = DB::select("select `stocks`.*, 
-		`brand`.`option_name` as `bName`, 
-		`brand_sector`.`option_name` as `bSector`, 
-		`category`.`option_name` as `cName`, 
-		`type`.`option_name` as `pType` from `stocks` 
-		inner join `option_tags` as `brand` on `brand`.`id` = `stocks`.`brand` 
-		inner join `option_tags` as `brand_sector` on `brand_sector`.`id` = `stocks`.`brand_sector` 
-		inner join `option_tags` as `category` on `category`.`id` = `stocks`.`category` 
-		inner join `option_tags` as `type` on `type`.`id` = `stocks`.`type`
-		where REPLACE(product_name,' ',\"\")  like '$keyword2%' or barcode='$keyword2' 
-		or batch_no='$keyword2' 
-		and stocks.qty>0
-		group by product_name;");
-		error_log("OBTAINED STOCKS FROM DB>>>");
-		//for each matched stock get all the batch nos
-		foreach ($stocks as $value) {
-			# code...
-			$productName = $value->product_name;
-			$variations = $this->getProductVariations($productName);
-			error_log("VARIATIONS ".$variations);
-			//$value->mytext='test';
-			//error_log("Product batch ".$value->mytext);
-			$value->variations = $variations;
-			//$value->totalQty = 500;
-			$value->totalQty = $variations->totalQty;
+			// Get requested items (pending orders)
+			$requestedItems = DB::table('requested_items')
+				->where('order_status', 'pending')
+				->where('status', 'Active')
+				->where('medicine_name', 'LIKE', '%' . $keyword . '%')
+				->select(
+					DB::raw("0 as id"),
+					'medicine_name as product_name',
+					DB::raw("'' as generic"),
+					DB::raw("'' as barcode"),
+					DB::raw("'' as batch_no"),
+					DB::raw("0 as qty"),
+					DB::raw("0 as strip_size"),
+					DB::raw("0 as pack_size"),
+					DB::raw("0 as sale_price"),
+					DB::raw("0 as mrp"),
+					DB::raw("0 as purchase_price"),
+					DB::raw("'2030-01-01' as expiry_date"),
+					DB::raw("0 as tax_1"),
+					DB::raw("0 as tax_2"),
+					DB::raw("0 as tax_3"),
+					DB::raw("0 as discount_percentage"),
+					DB::raw("'' as bName"),
+					DB::raw("'' as bSector"),
+					DB::raw("'' as cName"),
+					DB::raw("'' as pType"),
+					DB::raw("'requested' as item_type"),
+					DB::raw("1 as is_requested")
+				)
+				->groupBy('medicine_name')
+				->limit(10)
+				->get();
 
+			// Merge requested items at the top
+			$allItems = $requestedItems->concat($stocks);
 
+			error_log("OBTAINED STOCKS FROM DB>>>");
+			
+			//for each matched stock get all the batch nos
+			foreach ($allItems as $value) {
+				if ($value->item_type == 'stock') {
+					$productName = $value->product_name;
+					$variations = $this->getProductVariations($productName);
+					$value->variations = $variations;
+					$value->totalQty = $variations->totalQty ?? 0;
+				} else {
+					$value->variations = collect([]);
+					$value->totalQty = 0;
+				}
+			}
+			
+			error_log("RETURNING STOCKS WITH VARIATIONS>>>>>");
+			return [
+				'records' => $allItems
+			];
+			
+		} catch (\Exception $e) {
+			error_log("Error in searchItems: " . $e->getMessage());
+			return [
+				'records' => [],
+				'error' => $e->getMessage()
+			];
 		}
-		error_log("RETURNING STOCKS WITH VARIATIONS>>>>>");
-		return [
-			'records' => $stocks
-		];
 	}
 
 	function test(){
@@ -573,51 +628,214 @@ class StockController extends Controller
 	//this is soumik code - new method to get all variations of a base product
 	public function getProductVariations($productName)
 	{
-		$total=0;
-		//$baseProductName = $request['base_product_name'];
-		//$generic = $request['generic'];
+		$total = 0;
 		$baseProductName = $productName;
 
-		//this is soumik code - get all variations that start with the base product name
-		$stocks = DB::table('stocks')
-			->leftJoin('option_tags as brand', 'brand.id', '=', 'stocks.brand')
-			->leftJoin('option_tags as brand_sector', 'brand_sector.id', '=', 'stocks.brand_sector')
-			->leftJoin('option_tags as category', 'category.id', '=', 'stocks.category')
-			->leftJoin('option_tags as type', 'type.id', '=', 'stocks.type')
-			->where('stocks.branch_id', Auth::user()->branch_id)
-			->where('stocks.status', 'Active')
-			->where('stocks.product_name', '=', $baseProductName)
-			->whereRaw(" `stocks`.`qty`>0")
+		try {
+			//this is soumik code - get all variations that start with the base product name
+			$stocks = DB::table('stocks')
+				->leftJoin('option_tags as brand', 'brand.id', '=', 'stocks.brand')
+				->leftJoin('option_tags as brand_sector', 'brand_sector.id', '=', 'stocks.brand_sector')
+				->leftJoin('option_tags as category', 'category.id', '=', 'stocks.category')
+				->leftJoin('option_tags as type', 'type.id', '=', 'stocks.type')
+				->where('stocks.branch_id', Auth::user()->branch_id)
+				->where('stocks.status', 'Active')
+				->where('stocks.product_name', '=', $baseProductName)
+				->where('stocks.qty', '>', 0)
+				->select(
+					'stocks.*',
+					'brand.option_name as bName',
+					'brand_sector.option_name as bSector',
+					'category.option_name as cName',
+					'type.option_name as pType'
+				)
+				->orderBy('stocks.product_name', 'ASC')
+				->get();
 
-			->select(
-				'stocks.*',
-				'brand.option_name as bName',
-				'brand_sector.option_name as bSector',
-				'category.option_name as cName',
-				'type.option_name as pType'
-			)
-			->orderBy('stocks.product_name', 'ASC')
-			->get();
-				if(!$stocks->isEmpty()){
-					foreach ($stocks as $value) {
-					# code...
+			if (!$stocks->isEmpty()) {
+				foreach ($stocks as $value) {
 					$qty = $value->qty;
-					error_log("Quantity of each variation ".$value->id.'>>>>'.$qty);
-					$total +=$qty;
-					//$value->mytext='test';
-					//error_log("Product batch ".$value->mytext);
-					$stocks->totalQty=$total;
-					}
-				}else{
-					$stocks->totalQty=0;
-
+					error_log("Quantity of each variation " . $value->id . '>>>>' . $qty);
+					$total += $qty;
 				}
+				$stocks->totalQty = $total;
+			} else {
+				// Create empty collection with totalQty property
+				$stocks = collect([]);
+				$stocks->totalQty = 0;
+			}
 
 			return $stocks;
+			
+		} catch (\Exception $e) {
+			error_log("Error in getProductVariations: " . $e->getMessage());
+			$stocks = collect([]);
+			$stocks->totalQty = 0;
+			return $stocks;
+		}
+	}
 
-		// return [
-		// 	'records' => $stocks
-		// ];
+	/**
+	 * Check for pending medicine orders and create notifications
+	 */
+	private function checkPendingOrders($medicineName, $stockId)
+	{
+		// Get all pending requested items
+		$pendingOrders = RequestedItem::where('order_status', 'pending')
+			->where('status', 'Active')
+			->whereNotNull('customer_id')
+			->get();
+
+		foreach ($pendingOrders as $order) {
+			// Check if medicine names match using smart matching
+			if ($this->isMedicineMatch($medicineName, $order->medicine_name)) {
+				// Update order status to received
+				$order->update([
+					'order_status' => 'received',
+					'received_date' => now()->toDateString(),
+					'stock_id' => $stockId
+				]);
+
+				// Create notification for customer
+				$message = "Your requested medicine '{$order->medicine_name}' has arrived. Please contact us to collect your order.";
+				
+				Notification::create([
+					'customer_id' => $order->customer_id,
+					'requested_item_id' => $order->id,
+					'message' => $message,
+					'type' => 'medicine_arrived',
+					'status' => 'unread'
+				]);
+			}
+		}
+	}
+
+	/**
+	 * Smart medicine name matching with multiple strategies
+	 */
+	private function isMedicineMatch($stockMedicine, $requestedMedicine)
+	{
+		// Clean both names (remove spaces, convert to lowercase)
+		$stock = strtolower(str_replace(' ', '', $stockMedicine));
+		$requested = strtolower(str_replace(' ', '', $requestedMedicine));
+
+		// Strategy 1: Exact match
+		if ($stock === $requested) {
+			return true;
+		}
+
+		// Strategy 2: One contains the other
+		if (strpos($stock, $requested) !== false || strpos($requested, $stock) !== false) {
+			return true;
+		}
+
+		// Strategy 3: Similar length and characters (for typos)
+		if (abs(strlen($stock) - strlen($requested)) <= 2) {
+			$similarity = 0;
+			similar_text($stock, $requested, $similarity);
+			// If 80% or more similar, consider it a match
+			if ($similarity >= 80) {
+				return true;
+			}
+		}
+
+		// Strategy 4: Check if first 5 characters match (for common prefixes)
+		if (strlen($stock) >= 5 && strlen($requested) >= 5) {
+			if (substr($stock, 0, 5) === substr($requested, 0, 5)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Get pending requested medicines for autocomplete
+	 */
+	public function getPendingRequestedMedicines(Request $request)
+	{
+		$query = $request->get('query', '');
+		
+		if (strlen($query) < 2) {
+			return response()->json([]);
+		}
+		
+		$requestedMedicines = RequestedItem::where('order_status', 'pending')
+			->where('status', 'Active')
+			->where('medicine_name', 'LIKE', '%' . $query . '%')
+			->whereNotNull('customer_id')
+			->select('medicine_name', 'quantity', 'customer_id')
+			->with('customer:id,account_title,contact_no')
+			->distinct()
+			->limit(10)
+			->get()
+			->map(function($item) {
+				return [
+					'medicine_name' => $item->medicine_name,
+					'display' => $item->medicine_name . ' (Requested by: ' . ($item->customer ? $item->customer->account_title : 'Unknown') . ')',
+					'customer_name' => $item->customer ? $item->customer->account_title : 'Unknown',
+					'customer_phone' => $item->customer ? $item->customer->contact_no : '',
+					'quantity' => $item->quantity,
+					'is_requested' => true
+				];
+			});
+			
+		return response()->json($requestedMedicines);
+	}
+
+	/**
+	 * Search medicine for new item modal - includes requested items and existing products
+	 */
+	public function searchMedicineForNewItem(Request $request)
+	{
+		$keyword = $request->get('keyword', '');
+		
+		if (strlen($keyword) < 2) {
+			return response()->json(['records' => []]);
+		}
+
+		try {
+			$results = [];
+
+			// Get requested medicines (pending orders)
+			$requestedMedicines = DB::table('requested_items')
+				->where('order_status', 'pending')
+				->where('status', 'Active')
+				->where('medicine_name', 'LIKE', '%' . $keyword . '%')
+				->select(
+					'medicine_name',
+					DB::raw("1 as is_requested")
+				)
+				->groupBy('medicine_name')
+				->limit(10)
+				->get();
+
+			// Get existing product names from stocks
+			$existingProducts = DB::table('stocks')
+				->where('product_name', 'LIKE', '%' . $keyword . '%')
+				->where('status', 'Active')
+				->select(
+					'product_name as medicine_name',
+					DB::raw("0 as is_requested")
+				)
+				->groupBy('product_name')
+				->limit(10)
+				->get();
+
+			// Merge results - requested items first
+			$allResults = $requestedMedicines->concat($existingProducts);
+
+			return response()->json([
+				'records' => $allResults
+			]);
+
+		} catch (\Exception $e) {
+			error_log("Error in searchMedicineForNewItem: " . $e->getMessage());
+			return response()->json([
+				'records' => [],
+				'error' => $e->getMessage()
+			]);
+		}
 	}
 
 }

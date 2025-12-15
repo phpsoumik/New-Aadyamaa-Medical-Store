@@ -224,29 +224,24 @@
 
                        >
                        <template #item="slotProps">
-                    <div>
+                    <div :style="slotProps.item.is_requested ? 'background-color: #fff3cd; padding: 5px; border-left: 3px solid #ffc107;' : ''">
                       <span class="p-mr-1">
                         NAME :
                         <b class="pull-right">
                           {{ slotProps.item.product_name.toUpperCase() }}
+                          <span v-if="slotProps.item.is_requested" style="color: #ff6b6b; font-size: 11px; margin-left: 5px;">
+                            [REQUESTED ITEM]
+                          </span>
                         </b>
                       </span>
-                      <span class="p-mx-1">
+                      <span class="p-mx-1" v-if="!slotProps.item.is_requested">
                         EXPIRY DATE :
                         <b class="pull-right">
                           {{ formatExpiryDate(slotProps.item.expiry_date) }}
                         </b>
                       </span>
                     </div>
-                    <!-- <div>
-                      <span>
-                        GENERIC :
-                        <b class="pull-right">
-                          {{ slotProps.item.generic.toUpperCase() }}
-                        </b>
-                      </span>
-                    </div> -->
-                    <div>
+                    <div v-if="!slotProps.item.is_requested">
                       <small>
                         BATCH NO :
                         <b class="pull-right">
@@ -265,7 +260,11 @@
                          {{currency}} {{ slotProps.item.mrp }}
                         </b>
                       </small>
-                     
+                    </div>
+                    <div v-else style="padding: 3px 0;">
+                      <small style="color: #856404;">
+                        <i class="pi pi-info-circle"></i> This is a customer requested medicine
+                      </small>
                     </div>
                   </template>
                        </AutoComplete>
@@ -1465,11 +1464,19 @@ searchProfiler(event) {
 }
 
 searchItem(event) {
-  // alert('search item');
+  console.log('Search item called with query:', event.query);
   setTimeout(() => {
     this.posService.searchItem(event.query.trim()).then((data) => {
-      this.itemList = data.records;
-      // alert(JSON.stringify(this.itemList));
+      console.log('Search response:', data);
+      this.itemList = data.records || [];
+      if (data.error) {
+        console.error('Search error:', data.error);
+        this.toast.showError('Search failed: ' + data.error);
+      }
+    }).catch((error) => {
+      console.error('Search request failed:', error);
+      this.toast.showError('Failed to search items. Please try again.');
+      this.itemList = [];
     });
   }, 200);
 }
@@ -1607,46 +1614,86 @@ saveItem(event, index) {
     return;
   }
   
-  this.savedItemList[index]={
-    mode: "Pack",
-    stockID: itemInfo.id,
-    productID: itemInfo.product_id,
-    productName: itemInfo.product_name,
-    generic: itemInfo.generic,
-    itemDescription: itemInfo.description,
-    barcode: Number(itemInfo.barcode),
-    unit: 1,
-    totalUnit: 0,
-    stockQty: Number(itemInfo.qty),
-    freeUnit: 0,
-    supplierBonus: 0,
-    batchNo: itemInfo.batch_no,
-    packSize: Number(itemInfo.pack_size),
-    sheetSize: Number(itemInfo.strip_size),
-    purchasePrice: Number(itemInfo.purchase_price),
-    orginalSPrice: Number(itemInfo.sale_price),
-    sellingPrice: Number(itemInfo.sale_price),
-    mrp: Number(itemInfo.mrp),
-    brandName: itemInfo.bName,
-    sectorName: itemInfo.bSector,
-    categoryName: itemInfo.cName,
-    productType: itemInfo.pType,
-    //expiryDate: this.createExpiryDate(itemInfo.expiry_date),
-   // expiryDate: itemInfo.expiry_date,
-    expiryDate : this.reverseExpiryDate(itemInfo.expiry_date),
-    cusDisc: Number(itemInfo.discount_percentage),
-    purchaseAfterDisc: 0,
-    itemDisc: 0,
-    specialDisc:0,
-    tax1: Number(itemInfo.tax_1),
-    tax2: Number(itemInfo.tax_2),
-    tax3: Number(this.calcMargin(itemInfo)),
-    subTotal: 0,
-    preturn:0,
-    isSelected:0,
-    //this is soumik code - added HSN field mapping
-    hsn: itemInfo.hsn || itemInfo.barcode || 0,
-  };
+  // Check if this is a requested item
+  if (itemInfo.is_requested == 1) {
+    // For requested items, set minimal data
+    this.savedItemList[index]={
+      mode: "Pack",
+      stockID: 0,
+      productID: 0,
+      productName: itemInfo.product_name,
+      generic: '',
+      itemDescription: 'Requested Item',
+      barcode: 0,
+      unit: 1,
+      totalUnit: 0,
+      stockQty: 0,
+      freeUnit: 0,
+      supplierBonus: 0,
+      batchNo: '',
+      packSize: 1,
+      sheetSize: 1,
+      purchasePrice: 0,
+      orginalSPrice: 0,
+      sellingPrice: 0,
+      mrp: 0,
+      brandName: '',
+      sectorName: '',
+      categoryName: '',
+      productType: '100',
+      expiryDate: '01/30',
+      cusDisc: 0,
+      purchaseAfterDisc: 0,
+      itemDisc: 0,
+      specialDisc:0,
+      tax1: 6,
+      tax2: 6,
+      tax3: 0,
+      subTotal: 0,
+      preturn:0,
+      isSelected:0,
+      hsn: 0,
+    };
+  } else {
+    // For stock items, use existing logic
+    this.savedItemList[index]={
+      mode: "Pack",
+      stockID: itemInfo.id,
+      productID: itemInfo.product_id,
+      productName: itemInfo.product_name,
+      generic: itemInfo.generic,
+      itemDescription: itemInfo.description,
+      barcode: Number(itemInfo.barcode),
+      unit: 1,
+      totalUnit: 0,
+      stockQty: Number(itemInfo.qty),
+      freeUnit: 0,
+      supplierBonus: 0,
+      batchNo: itemInfo.batch_no,
+      packSize: Number(itemInfo.pack_size),
+      sheetSize: Number(itemInfo.strip_size),
+      purchasePrice: Number(itemInfo.purchase_price),
+      orginalSPrice: Number(itemInfo.sale_price),
+      sellingPrice: Number(itemInfo.sale_price),
+      mrp: Number(itemInfo.mrp),
+      brandName: itemInfo.bName,
+      sectorName: itemInfo.bSector,
+      categoryName: itemInfo.cName,
+      productType: itemInfo.pType,
+      expiryDate : this.reverseExpiryDate(itemInfo.expiry_date),
+      cusDisc: Number(itemInfo.discount_percentage),
+      purchaseAfterDisc: 0,
+      itemDisc: 0,
+      specialDisc:0,
+      tax1: Number(itemInfo.tax_1),
+      tax2: Number(itemInfo.tax_2),
+      tax3: Number(this.calcMargin(itemInfo)),
+      subTotal: 0,
+      preturn:0,
+      isSelected:0,
+      hsn: itemInfo.hsn || itemInfo.barcode || 0,
+    };
+  }
 
   //this is soumik code - clear itemList and blur input to close dropdown
   this.itemList = [];

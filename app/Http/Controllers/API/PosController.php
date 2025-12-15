@@ -21,6 +21,8 @@ use App\Models\DateFilters;
 use App\Models\Printer;
 use App\Models\PrinterReceipt;
 use App\Models\SubReceipt;
+use App\Models\RequestedItem;
+use App\Models\Notification;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 
@@ -882,18 +884,13 @@ class PosController extends Controller
 
                     //sam 18/06/24
                     $item->totalUnit = $item->packSize * $item->sheetSize+$item->freeUnit*$item->sheetSize;
-                    //$item->sellingPrice = $item->itemDescription;
+                    
                     if($item->stockID!=0){
                         $stock_id = $s->addReducePurchaseStock($item,$request->type);
-
                     }else{
-                        error_log(">>>ITEM NOT IN MASTER");
-                        $response = response()->json([
-                            'alert' =>'danger',
-                            'msg'   => 'The Item '.$item->productName.' is not in Item Master',
-                        ]);
-
-                        return $response;
+                        // New item - create stock entry
+                        error_log(">>>CREATING NEW STOCK ITEM: ".$item->productName);
+                        $stock_id = $s->addReducePurchaseStock($item,$request->type);
                     }
 
                     $PosSubReceipt = new PosSubReceipt([
@@ -979,8 +976,9 @@ class PosController extends Controller
 
                 }
                 
-                //sam
-                //$il = implode($itemLists);
+                // Update requested_items and create notifications
+                $this->updateRequestedItemsAndNotify($itemLists);
+                
                 error_log(">>>> SAVE PURCHASE RECEIPT FINISHED ");
 
                 $response = response()->json([
@@ -1018,30 +1016,43 @@ class PosController extends Controller
     }
 
     protected function createDate($d){
-  
-        $string =explode('/',$d);
-        $month=$string[0];
-        $year=$string[1];
-        $cdate=$year.'-'.$month.'-1';
-           return date('Y-m-d',strtotime($cdate));
-        //echo '<br/>';     
+        if(empty($d)) {
+            return date('Y-m-d', strtotime('+1 year'));
+        }
         
+        $string = explode('/',$d);
+        if(count($string) < 2) {
+            return date('Y-m-d', strtotime('+1 year'));
+        }
         
+        $month = $string[0];
+        $year = $string[1];
+        $cdate = $year.'-'.$month.'-1';
+        return date('Y-m-d',strtotime($cdate));
     }
 
     protected function createBillDate($d){
         error_log(">>>creating bill data ".$d);
-        $string =explode('/',$d);
-        $day=$string[0];
-        $month=$string[1];
-        $year=$string[2];
         
-        $cdate=$year.'-'.$month.'-'.$day;
+        if(empty($d)) {
+            return date('Y-m-d');
+        }
+        
+        // Handle both / and - separators
+        $separator = strpos($d, '/') !== false ? '/' : '-';
+        $string = explode($separator, $d);
+        
+        if(count($string) < 3) {
+            return date('Y-m-d');
+        }
+        
+        $day = $string[0];
+        $month = $string[1];
+        $year = $string[2];
+        
+        $cdate = $year.'-'.$month.'-'.$day;
         error_log(">>>bill date".$cdate);
-           return date('Y-m-d',strtotime($cdate));
-        //echo '<br/>';     
-        
-        
+        return date('Y-m-d',strtotime($cdate));
     }
 
     public function transactions(Request $request)
@@ -1711,5 +1722,52 @@ class PosController extends Controller
 		]);
 
 		return $response;
+    }
+
+    private function updateRequestedItemsAndNotify($itemLists)
+    {
+        foreach($itemLists as $item) {
+            if(empty($item->productName)) continue;
+            
+            // Find matching requested items
+            $requestedItems = DB::table('requested_items')
+                ->where('order_status', 'pending')
+                ->where('status', 'Active')
+                ->whereRaw('UPPER(medicine_name) = ?', [strtoupper($item->productName)])
+                ->get();
+            
+            foreach($requestedItems as $requestedItem) {
+                // Update requested item status
+                DB::table('requested_items')
+                    ->where('id', $requestedItem->id)
+                    ->update([
+                        'order_status' => 'received',
+                        'received_date' => date('Y-m-d'),
+                        'updated_at' => now()
+                    ]);
+                
+                // Get customer info
+                if($requestedItem->customer_id) {
+                    $customer = DB::table('profilers')
+                        ->where('id', $requestedItem->customer_id)
+                        ->first();
+                    
+                    if($customer) {
+                        // Create notification
+                        DB::table('notifications')->insert([
+                            'customer_id' => $customer->id,
+                            'requested_item_id' => $requestedItem->id,
+                            'message' => "Your requested medicine '{$requestedItem->medicine_name}' is now available. Please visit our shop to collect it. Contact: {$customer->contact_no}",
+                            'type' => 'medicine_arrived',
+                            'status' => 'unread',
+                            'created_at' => now(),
+                            'updated_at' => now()
+                        ]);
+                        
+                        error_log("Notification created for customer: {$customer->account_title} - Medicine: {$requestedItem->medicine_name}");
+                    }
+                }
+            }
+        }
     }
 }

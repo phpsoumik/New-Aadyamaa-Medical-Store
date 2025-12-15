@@ -17,7 +17,11 @@ class RequestedItem extends Model
         'advance_payment',
         'has_advance',
         'status',
-        'branch_id'
+        'branch_id',
+        'order_status',
+        'received_date',
+        'delivered_date',
+        'stock_id'
     ];
     
     protected $casts = [

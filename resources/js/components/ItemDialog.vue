@@ -16,17 +16,20 @@
     </template>
 
     <div class="p-field">
-      <label
-        for="accountTitle"
-        >Product Name</label
-      >
-      
+      <label for="accountTitle">Product Name</label>
       <InputText
         id="accountTitle"
-        v-model.trim="this.item.product_name"
+        v-model="item.product_name"
+        @input="searchMedicine($event.target.value)"
+        placeholder="Type medicine name..."
+        list="medicineDatalist"
         autoFocus
       />
-      
+      <datalist id="medicineDatalist">
+        <option v-for="med in medicineList" :key="med.medicine_name" :value="med.medicine_name">
+          {{ med.is_requested == 1 ? '[REQUESTED] ' : '' }}{{ med.medicine_name }}
+        </option>
+      </datalist>
     </div>
     <div class="p-field">
       <label
@@ -230,6 +233,7 @@ export default class ItemDialog extends Vue {
 
   //private v$ = useVuelidate(this.validationRules, this.state);
 
+  private medicineList = [];
   private productType = [
     {
       id : 0,
@@ -352,8 +356,21 @@ export default class ItemDialog extends Vue {
       this.brand        = data.brand;
       this.brandSector  = data.brandSector;
       this.category     = data.category;
+    });
+  }
 
+  //SEARCH MEDICINE FROM REQUESTED ITEMS AND STOCK
+  searchMedicine(query) {
+    if (!query || query.length < 2) {
+      this.medicineList = [];
+      return;
+    }
 
+    this.stockService.searchMedicineForNewItem(query).then((data) => {
+      this.medicineList = data.records || [];
+    }).catch((error) => {
+      console.error('Search medicine error:', error);
+      this.medicineList = [];
     });
   }
 }

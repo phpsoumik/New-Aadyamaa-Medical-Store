@@ -142,6 +142,10 @@ Route::post('expiry_return_report', [ExpiryReturnReportController::class, 'getEx
 Route::post('search_items', [StockController::class, 'searchItems'])->middleware(['auth:sanctum']);
 //this is soumik code - get batch variations for product selection
 Route::post('get_batch_variations', [PosController::class, 'getBatchVariations'])->middleware(['auth:sanctum']);
+// Get pending requested medicines for purchasing autocomplete
+Route::post('get_pending_requested_medicines', [StockController::class, 'getPendingRequestedMedicines'])->middleware(['auth:sanctum']);
+// Search medicine for new item modal (includes requested items)
+Route::post('search_medicine_for_new_item', [StockController::class, 'searchMedicineForNewItem'])->middleware(['auth:sanctum']);
 //this is soumik code - new routes for edit and delete expiry return records
 Route::get('expiry_return/{id}', [ExpiryReturnReportController::class, 'getExpiryReturn'])->middleware(['auth:sanctum']);
 Route::post('update_expiry_return', [ExpiryReturnReportController::class, 'updateExpiryReturn'])->middleware(['auth:sanctum']);

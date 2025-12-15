@@ -73,9 +73,14 @@
             </Column>
             <Column header="Product Name">
               <template #body="slotProps">
-                <InputText
+                <AutoComplete
                   v-model="item.productName"
+                  :suggestions="requestedMedicines"
+                  @complete="searchRequestedMedicines"
+                  field="display"
+                  placeholder="Type medicine name (requested medicines will show first)"
                   class="p-p-1"
+                  @item-select="onMedicineSelect"
                 />
               </template>
             </Column>
@@ -354,6 +359,7 @@ export default class ImportStock extends Vue {
   private toast;
   private stockService;
   private uploaderStatus = false;
+  private requestedMedicines = [];
   private home = { icon: "pi pi-home", to: "/" };
   private items = [
     { label: "Initialization", to: "initialization" },
@@ -689,6 +695,28 @@ export default class ImportStock extends Vue {
   clearListItem(item) {
     this.excelFileContent.splice(this.excelFileContent.indexOf(item), 1);
     this.toast.showSuccess("Row Deleted Successfully");
+  }
+
+  // Search requested medicines for autocomplete
+  searchRequestedMedicines(event) {
+    console.log('Search triggered with query:', event.query);
+    if (event.query.length >= 2) {
+      this.stockService.getPendingRequestedMedicines(event.query).then((medicines) => {
+        console.log('Received medicines:', medicines);
+        this.requestedMedicines = medicines;
+      }).catch((error) => {
+        console.error('Error fetching medicines:', error);
+      });
+    }
+  }
+
+  // Handle medicine selection
+  onMedicineSelect(event) {
+    if (event.value && event.value.is_requested) {
+      this.item.productName = event.value.medicine_name;
+      // Show notification that this is a requested medicine
+      this.toast.showInfo(`This medicine was requested by: ${event.value.customer_name} (${event.value.customer_phone})`);
+    }
   }
 
   get stockWorth()
