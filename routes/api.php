@@ -161,6 +161,9 @@ Route::post('add_requested_items', [RequestedItemController::class, 'store'])->m
 Route::get('get_requested_items/{id}', [RequestedItemController::class, 'show'])->middleware(['auth:sanctum','permission:Requested Items']);
 Route::post('edit_requested_items', [RequestedItemController::class, 'update'])->middleware(['auth:sanctum','permission:Requested Items']);
 Route::post('delete_requested_items', [RequestedItemController::class, 'delete'])->middleware(['auth:sanctum','permission:Requested Items']);
+Route::post('search_medicine', [RequestedItemController::class, 'searchMedicine'])->middleware(['auth:sanctum','permission:Requested Items']);
+Route::post('get_customer_phone', [RequestedItemController::class, 'getCustomerPhone'])->middleware(['auth:sanctum','permission:Requested Items']);
+Route::post('store_customer', [RequestedItemController::class, 'storeCustomer'])->middleware(['auth:sanctum','permission:Requested Items']);
 
 
 //Profilers ROUTES
