@@ -526,12 +526,18 @@ class StockController extends Controller
 		$branchId = Auth::user()->branch_id;
 
 		try {
-			// Get stock items (in stock)
+			// Get stock items with requested_items info joined
 			$stocks = DB::table('stocks')
 				->leftJoin('option_tags as brand', 'brand.id', '=', 'stocks.brand')
 				->leftJoin('option_tags as brand_sector', 'brand_sector.id', '=', 'stocks.brand_sector')
 				->leftJoin('option_tags as category', 'category.id', '=', 'stocks.category')
 				->leftJoin('option_tags as type', 'type.id', '=', 'stocks.type')
+				->leftJoin('requested_items', function($join) {
+					$join->on('stocks.id', '=', 'requested_items.stock_id')
+						 ->where('requested_items.order_status', '=', 'received')
+						 ->where('requested_items.status', '=', 'Active');
+				})
+				->leftJoin('profilers', 'requested_items.customer_id', '=', 'profilers.id')
 				->where('stocks.branch_id', $branchId)
 				->where('stocks.status', 'Active')
 				->where('stocks.qty', '>', 0)
@@ -549,14 +555,19 @@ class StockController extends Controller
 					'category.option_name as cName',
 					'type.option_name as pType',
 					DB::raw("'stock' as item_type"),
-					DB::raw("0 as is_requested")
+					DB::raw("CASE WHEN requested_items.id IS NOT NULL THEN 1 ELSE 0 END as is_requested"),
+					'requested_items.customer_id',
+					'profilers.account_title as customer_name',
+					'profilers.contact_no as customer_phone',
+					DB::raw("COALESCE(requested_items.advance_payment, 0) as advance_payment"),
+					'requested_items.id as requested_item_id'
 				)
 				->groupBy('stocks.product_name')
-				->orderBy('stocks.product_name', 'ASC')
+				->orderByRaw('is_requested DESC, stocks.product_name ASC')
 				->limit(20)
 				->get();
 
-			// Get requested items (pending orders)
+			// Get pending requested items (for purchasing page)
 			$requestedItems = DB::table('requested_items')
 				->where('order_status', 'pending')
 				->where('status', 'Active')
@@ -583,7 +594,12 @@ class StockController extends Controller
 					DB::raw("'' as cName"),
 					DB::raw("'' as pType"),
 					DB::raw("'requested' as item_type"),
-					DB::raw("1 as is_requested")
+					DB::raw("1 as is_requested"),
+					DB::raw("NULL as customer_id"),
+					DB::raw("NULL as customer_name"),
+					DB::raw("NULL as customer_phone"),
+					DB::raw("0 as advance_payment"),
+					DB::raw("NULL as requested_item_id")
 				)
 				->groupBy('medicine_name')
 				->limit(10)

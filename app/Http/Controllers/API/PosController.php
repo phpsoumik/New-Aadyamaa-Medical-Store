@@ -976,7 +976,7 @@ class PosController extends Controller
 
                 }
                 
-                // Update requested_items and create notifications
+                // Update requested_items and create notifications with actual stock IDs
                 $this->updateRequestedItemsAndNotify($itemLists);
                 
                 error_log(">>>> SAVE PURCHASE RECEIPT FINISHED ");
@@ -1737,14 +1737,40 @@ class PosController extends Controller
                 ->get();
             
             foreach($requestedItems as $requestedItem) {
+                // Get the actual stock_id - if item has stock_id property use it, otherwise find from stocks table
+                $stockId = null;
+                if(isset($item->stock_id) && $item->stock_id > 0) {
+                    $stockId = $item->stock_id;
+                } else if(isset($item->stockID) && $item->stockID > 0) {
+                    $stockId = $item->stockID;
+                } else {
+                    // Try to find stock by product name and batch
+                    $stock = DB::table('stocks')
+                        ->whereRaw('UPPER(product_name) = ?', [strtoupper($item->productName)])
+                        ->where('batch_no', $item->batchNo)
+                        ->where('status', 'Active')
+                        ->orderBy('id', 'DESC')
+                        ->first();
+                    if($stock) {
+                        $stockId = $stock->id;
+                    }
+                }
+                
                 // Update requested item status
+                $updateData = [
+                    'order_status' => 'received',
+                    'received_date' => date('Y-m-d'),
+                    'updated_at' => now()
+                ];
+                
+                // Only add stock_id if we found a valid one
+                if($stockId) {
+                    $updateData['stock_id'] = $stockId;
+                }
+                
                 DB::table('requested_items')
                     ->where('id', $requestedItem->id)
-                    ->update([
-                        'order_status' => 'received',
-                        'received_date' => date('Y-m-d'),
-                        'updated_at' => now()
-                    ]);
+                    ->update($updateData);
                 
                 // Get customer info
                 if($requestedItem->customer_id) {

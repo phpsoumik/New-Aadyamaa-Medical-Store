@@ -119,13 +119,14 @@
                           autoFocus inputStyle="width:18rem" @item-select="showVarations($event, index)">
                           <template #item="slotProps">
                             <ul>
-                                <li>                                  
+                                <li :class="{ 'requested-item': slotProps.item.is_requested }">
+                                  <span v-if="slotProps.item.is_requested" class="requested-badge">🔔 REQUESTED</span>
                                   <b>{{ slotProps.item.product_name.toUpperCase() }}</b>:-{{ Math.floor(slotProps.item.totalQty/slotProps.item.strip_size) }}:{{slotProps.item.totalQty%slotProps.item.strip_size}}
-                                    <!-- {{ slotProps.item.product_name.toUpperCase() }} -->
+                                  <div v-if="slotProps.item.is_requested" class="requested-customer-info">
+                                    <small>Customer: {{ slotProps.item.customer_name }} | ₹{{ slotProps.item.advance_payment }} Advance</small>
+                                  </div>
                                 </li>
-                                
                               </ul>
-
                           </template>
                         </AutoComplete>
                       </td>
@@ -775,7 +776,12 @@ export default class PosReceipt extends Vue {
         this.itemList = data.records;
        //this.itemList = this.filterItems(data.records);
         console.log(">>>RETURNED STOCKS BY SEARCH "+JSON.stringify(this.itemList));
-
+        console.log(">>>CHECKING REQUESTED ITEMS:");
+        this.itemList.forEach(item => {
+          if(item.is_requested) {
+            console.log("REQUESTED ITEM FOUND:", item.product_name, "Customer:", item.customer_name, "Advance:", item.advance_payment);
+          }
+        });
       });
     }, 200);
   }
@@ -2033,6 +2039,42 @@ export default class PosReceipt extends Vue {
 .p-autocomplete-item ul li ul li:nth-child(odd){
   background:#11467e;
 } */
+
+/* Requested Medicine Styles */
+.requested-item {
+  background: linear-gradient(to right, #fff3cd 0%, #ffffff 100%) !important;
+  border-left: 4px solid #ff9800 !important;
+  padding: 8px !important;
+}
+
+.requested-badge {
+  display: inline-block;
+  background-color: #ff9800;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: bold;
+  margin-right: 8px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.requested-customer-info {
+  color: #666;
+  font-size: 11px;
+  margin-top: 4px;
+  padding-left: 4px;
+}
+
+.requested-customer-info small {
+  color: #0b932a;
+  font-weight: 600;
+}
 
 /* Optional: responsive for mobile */
 .p-dialog .p-dialog-header .p-dialog-header-icon {
