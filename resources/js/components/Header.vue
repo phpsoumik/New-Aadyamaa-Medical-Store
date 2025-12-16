@@ -1,6 +1,10 @@
 <template>
   <section class="top-menu-vue element-to-hide">
-    <Menubar :model="menuItems" />
+    <Menubar :model="menuItems">
+      <template #end>
+        <NotificationBell />
+      </template>
+    </Menubar>
     <div style="height: 0.2em; margin: 0; background-color: #eee">
       <ProgressBar
         v-if="progressBar"
@@ -18,11 +22,13 @@ import router from "../router";
 import { ActionTypes } from "../store";
 import Toaster from "../helpers/Toaster";
 import UtilityOptions from "../mixins/UtilityOptions";
+import NotificationBell from "./NotificationBell.vue";
 
 
 @Options({
   components: {
     TabMenu,
+    NotificationBell,
   },
 })
 export default class Header extends  mixins(UtilityOptions) {
@@ -140,10 +146,20 @@ export default class Header extends  mixins(UtilityOptions) {
   padding: 0;
   background-color: #fff;
   border-radius: 0px;
+  display: flex;
+  justify-content: center;
+  position: relative;
 }
 .p-menubar-root-list {
   margin: 0 auto !important;
   padding: 0 !important;
+}
+
+.p-menubar .p-menubar-end {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .p-menuitem-icon {

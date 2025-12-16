@@ -17,6 +17,13 @@
               {{ storeName }}
             </b>
           </h5>
+          <Button 
+            icon="pi pi-bell" 
+            class="p-button-rounded p-button-text p-ml-3"
+            :badge="unreadCount > 0 ? unreadCount.toString() : ''"
+            @click="toggleNotifications"
+            style="position: relative;"
+          />
         </template>
         <template #end>
           <div class="p-mx-1">
@@ -980,7 +987,6 @@ components: {
   SearchFilter,
   PreviewAccountingReceipt,
   PaymentScreen,
-  // ProfilerDialog,
   FileUploader,
   ItemDialog
 },

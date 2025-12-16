@@ -293,3 +293,8 @@ Route::get('get_brands', [StoreReportController::class, 'getBrands'])->middlewar
 
 // THIS IS SOUMIK CODE - Bulk Order Voucher (29-11-2025)
 Route::post('bulk_order_voucher_data', [StoreReportController::class, 'getBulkOrderVoucherData'])->middleware('auth:sanctum');
+
+// Notification routes
+Route::get('notifications', [App\Http\Controllers\API\NotificationController::class, 'index'])->middleware('auth:sanctum');
+Route::post('notifications/mark-read', [App\Http\Controllers\API\NotificationController::class, 'markAsRead'])->middleware('auth:sanctum');
+Route::post('notifications/mark-all-read', [App\Http\Controllers\API\NotificationController::class, 'markAllAsRead'])->middleware('auth:sanctum');
