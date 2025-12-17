@@ -137,8 +137,9 @@
               Total {{ taxNames[2].taxName }} :  {{currency}} {{ formatAmount(item.totalTax3) }}
             </td>
             <td>Total Tax :  {{currency}} {{ formatAmount(item.totalTax) }}</td>
-            <td>Net Total :  {{currency}} {{ formatAmount(item.totalBill) }}</td>
-            <td>Balance :  {{currency}} {{ formatAmount(totalBalance) }}</td>
+            <td>Our Price :  {{currency}} {{ formatAmount(item.totalBill) }}</td>
+            <td>Advance Payment :  {{currency}} {{ formatAmount(advancePayment) }}</td>
+            <td>Total Amount :  {{currency}} {{ formatAmount(item.totalBill - advancePayment) }}</td>
           </tr>
         </table>
       </div>
@@ -213,6 +214,7 @@ import UtilityOptions from "../mixins/UtilityOptions";
 })
 export default class PreviewAccountingReceipt extends mixins(UtilityOptions) {
   private toast;
+  private advancePayment = 0;
   private totalBalance = 0;
   private PaymentLists = [
     {
@@ -333,7 +335,8 @@ export default class PreviewAccountingReceipt extends mixins(UtilityOptions) {
         this.item.totalBill = Number(res.receipt.total_bill);
 
         this.receiptPayments(res.receipt);
-        //CALCULATE TOTAL BALANCE
+        //CALCULATE ADVANCE PAYMENT AND BALANCE
+        this.advancePayment = this.calculateAdvancePayment(res.receipt);
         this.totalBalance = this.calculateBalance(res.receipt.total_bill,res.receipt);
 
         let vList = res.subReceipt;
@@ -400,6 +403,16 @@ export default class PreviewAccountingReceipt extends mixins(UtilityOptions) {
 
   printReceipt() {
     window.print();
+  }
+
+  calculateAdvancePayment(data) {
+    let totalAmount = 0;
+
+    data.receipt_balance.forEach((e) => {
+      totalAmount = totalAmount + Number(e.trans_total_amount);
+    });
+
+    return Number(totalAmount);
   }
 
   calculateBalance(totalBill,data) {

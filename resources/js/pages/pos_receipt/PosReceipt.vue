@@ -257,6 +257,12 @@
                         {{ slotProps.item.account_type }}
                       </span>
                     </div>
+                    <div v-if="slotProps.item.total_advance_payment > 0" style="background-color: #fff3cd; padding: 4px; margin-top: 4px; border-radius: 4px;">
+                      <b style="color: #ff9800;">💰 Advance Paid:</b>
+                      <span class="pull-right" style="color: #ff9800; font-weight: bold;">
+                        {{ currency }} {{ slotProps.item.total_advance_payment }}
+                      </span>
+                    </div>
                   </template>
                 </AutoComplete>
                 <span v-if="v$.selectedProfile.$error && submitted">
@@ -401,8 +407,10 @@
           {{ currency }} {{ fixDigits(totalTax2) }}</span>
         <span class="set-bottom-amt p-col" v-if="taxNames[2].show">Total {{ taxNames[2].taxName }} <br />
           {{ currency }} {{ fixDigits(totalTax3) }}</span>
+        <span class="set-bottom-amt p-col" v-if="totalAdvancePayment > 0" style="background-color: #ff9800;">Advance Paid <br />
+          - {{ currency }} {{ fixDigits(totalAdvancePayment) }}</span>
         <span class="set-bottom-amt p-col">Net Total <br />
-          {{ currency }} {{ fixDigits(netTotal) }}</span>
+          {{ currency }} {{ fixDigits(netTotal - totalAdvancePayment) }}</span>
         <Button v-if="item.type != 'TRN'" class="p-col p-button-warning b-style" icon="pi pi-arrow-right" label="NEXT"
           @click="openPaymentMethod(!v$.$invalid)" :disabled="item.profileID == 0 || netTotal <= 0" />
         <Button v-else class="p-col p-button-warning b-style" icon="pi pi-arrow-right" label="DONE"
@@ -435,6 +443,7 @@
     customerID: this.item.profileID,
     customerName: this.state.selectedProfile,
     closeConfirmation: true,
+    advancePayment: this.totalAdvancePayment,
   }" v-on:closePaymentScreenEvent="closePaymentScreen" v-on:getProceededPaymentsEvent="getProceededPayments" />
 
 
@@ -475,40 +484,53 @@
 
             </div>
             <hr style="  border-top: 1px solid red;"/>
-        <table style="width:2.28in">
-          <tr>
-              <td style="font-size:12px;" colspan=2>Item</td>
-              <td style="font-size:12px;">MRP</td>
-              <td style="font-size:12px;">Qty</td>
-              <td style="font-size:12px;" colspan=2>Our Price</td>
+        <table style="width:2.28in; border-collapse: collapse;">
+          <tr style="border-bottom: 2px solid #000;">
+              <td style="font-size:11px; font-weight: bold; padding: 4px;" colspan=2>Item</td>
+              <td style="font-size:11px; font-weight: bold; padding: 4px;">MRP</td>
+              <td style="font-size:11px; font-weight: bold; padding: 4px;">Qty</td>
+              <td style="font-size:11px; font-weight: bold; padding: 4px;" colspan=2>Price</td>
           </tr>
           <tr>
-            <td colspan="6"><hr style="border-top: 1px dashed black;"></td>
+            <td colspan="6"><hr style="border-top: 1px dashed black; margin: 2px 0;"></td>
           </tr>
-          <tr  v-for="(item, index) in savedItemList" :key="item">
-
-
-                <td colspan=2>
-                    <p style="font-size:0.7em">{{ item.productName }}</p>
-
+          <tr v-for="(item, index) in savedItemList" :key="item">
+                <td colspan=2 style="padding: 3px;">
+                    <p style="font-size:0.75em; margin: 0;">{{ item.productName }}</p>
                 </td>
-                <td >
-                    <p style="font-size:0.7em">{{ item.mrp.toFixed(2) }}</p>
+                <td style="padding: 3px;">
+                    <p style="font-size:0.75em; margin: 0;">{{ item.mrp.toFixed(2) }}</p>
                 </td>
-                <td >
-                    <p style="font-size:0.7em">{{ item.leaf }}.{{ item.unit }}</p>
+                <td style="padding: 3px;">
+                    <p style="font-size:0.75em; margin: 0;">{{ item.leaf }}.{{ item.unit }}</p>
                 </td>
-                <td ><p style="font-size:0.7em">{{ item.subTotal.toFixed(2) }}</p></td>
+                <td colspan=2 style="padding: 3px;">
+                    <p style="font-size:0.75em; margin: 0;">{{ item.subTotal.toFixed(2) }}</p>
+                </td>
           </tr>
           <tr>
-            <td colspan="6"><hr></td>
+            <td colspan="6"><hr style="border-top: 1px solid #000; margin: 4px 0;"></td>
           </tr>
           <tr>
-            <td colspan="2">TOTAL</td>
-            <td>---</td>
-            <td></td>
-
-            <td colspan="2">{{netTotal.toFixed(2)}}</td>
+            <td colspan="2" style="padding: 3px;">SUBTOTAL</td>
+            <td style="padding: 3px;">---</td>
+            <td style="padding: 3px;"></td>
+            <td colspan="2" style="padding: 3px; text-align: right;">{{netTotal.toFixed(2)}}</td>
+          </tr>
+          <tr v-if="totalAdvancePayment > 0">
+            <td colspan="2" style="padding: 3px;"><b>ADVANCE PAID</b></td>
+            <td style="padding: 3px;">---</td>
+            <td style="padding: 3px;"></td>
+            <td colspan="2" style="padding: 3px; text-align: right;"><b>(-) {{totalAdvancePayment.toFixed(2)}}</b></td>
+          </tr>
+          <tr>
+            <td colspan="6"><hr style="border-top: 2px solid #000; margin: 4px 0;"></td>
+          </tr>
+          <tr style="font-weight: bold; font-size: 1.1em;">
+            <td colspan="2" style="padding: 4px;">NET TOTAL</td>
+            <td style="padding: 4px;">---</td>
+            <td style="padding: 4px;"></td>
+            <td colspan="2" style="padding: 4px; text-align: right;">{{(netTotal - totalAdvancePayment).toFixed(2)}}</td>
           </tr>
         </table>
        <hr style="  border-top: 1px solid red;"/>
@@ -626,6 +648,8 @@ export default class PosReceipt extends Vue {
   private store = useStore();
   private billDiscount = 0;
   private billAdjustment = 0;
+  private totalAdvancePayment = 0;
+  private requestedItemIds = [];
   
   private counterEntry: CounterEntry[] = [];
 
@@ -802,6 +826,10 @@ export default class PosReceipt extends Vue {
     this.item.profileID = profileInfo.id;
     this.item.patientDetails=profileInfo.account_title;
     this.item.description=profileInfo.contact_no;
+    
+    // Set advance payment if customer has any
+    this.totalAdvancePayment = Number(profileInfo.total_advance_payment) || 0;
+    console.log('Customer selected - Advance Payment:', this.totalAdvancePayment);
   }
 
 
@@ -870,6 +898,12 @@ export default class PosReceipt extends Vue {
     // alert("savedf item "+JSON.stringify(itemInfo.variations));
     //alert(itemInfo);
     //const itemInfo = selectedVariation;
+    console.log('SAVE ITEM - Checking requested item data:', {
+      is_requested: itemInfo.is_requested,
+      advance_payment: itemInfo.advance_payment,
+      customer_name: itemInfo.customer_name,
+      product_name: itemInfo.product_name
+    });
     let sellRate = 0;
     let disc = 0;
 
@@ -912,7 +946,18 @@ export default class PosReceipt extends Vue {
       tax2: Number(itemInfo.tax_2),
       tax3: Number(itemInfo.tax_3),
       subTotal: 0,
+      isRequested: itemInfo.is_requested || 0,
+      advancePayment: Number(itemInfo.advance_payment) || 0,
+      requestedItemId: itemInfo.requested_item_id || null,
     };
+    
+    // Track advance payment for requested items
+    if(itemInfo.is_requested && itemInfo.advance_payment > 0) {
+      this.totalAdvancePayment += Number(itemInfo.advance_payment);
+      if(itemInfo.requested_item_id) {
+        this.requestedItemIds.push(itemInfo.requested_item_id);
+      }
+    }
 
     this.itemScanBox = "";
    document.getElementById("leafComp0")?.focus();
@@ -1339,6 +1384,8 @@ export default class PosReceipt extends Vue {
 
     this.savedItemList = [];
     this.paymentList = [];
+    this.totalAdvancePayment = 0;
+    this.requestedItemIds = [];
 
     this.item = {
       id: 0,

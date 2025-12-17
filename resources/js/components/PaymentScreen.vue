@@ -56,13 +56,23 @@
         />
       </div>
       <div class="col-md-2 col-sm-12 content-height p-pl-1 p-pr-0">
-        <h5>
+        <h5 v-if="advancePayment > 0" style="background-color: #fff3cd; padding: 8px; border-radius: 4px;">
+          <span style="color: #ff9800;">💰 Advance Paid</span>
+          <input
+            style="color: #ff9800; font-weight: bold;"
+            type="text"
+            :value="fixLength(advancePayment)"
+            readonly
+            class="form-control py-customize-bx mt-1"
+          />
+        </h5>
+        <h5 :class="{'mt-2': advancePayment > 0}">
           ({{currency}}) Amount Due
           <input
           style="color: black"
 
             type="text"
-            :value="fixLength(totalBill)"
+            :value="fixLength(totalBill - advancePayment)"
             readonly
             class="form-control py-customize-bx mt-1 py-balance-due"
           />
@@ -423,6 +433,7 @@ interface PaymentListType {
       this.customerID = obj.customerID;
       this.customerName = obj.customerName;
       this.paymentAction.needlePoints = obj.needlePoints;
+      this.advancePayment = Number(obj.advancePayment) || 0;
       this.dialogTilte = obj.dialogTilte + " for Customer " + this.customerName;
     },
   },
@@ -435,6 +446,7 @@ export default class PaymentScreen extends mixins(UtilityOptions) {
   private methodList: IPaymentMethod [] = [];
   private customerName;
   private accountNo = "";
+  private advancePayment = 0;
   private cardType = {
     bankId: 0,
     branchId: 0,
@@ -644,9 +656,10 @@ export default class PaymentScreen extends mixins(UtilityOptions) {
     let change = 0;
     const amountLeft = this.paymentRounding;
     const tendered = Number(this.paymentAction.tendered);
+    const amountDue = Number(this.totalBill) - this.advancePayment;
     //alert("in change amount "+this.amountLeft+"..."+this.paymentRounding+".."+this.paymentAction.tendered);
    // const balance = tendered - amountLeft;
-    const balance = tendered - Number(this.totalBill);
+    const balance = tendered - amountDue;
 
     if (balance > 0) {
       change = balance;
@@ -714,11 +727,12 @@ export default class PaymentScreen extends mixins(UtilityOptions) {
   }
 
   confirmPayments() {
-    if(this.paymentAction.tendered>=this.totalBill){
+    const amountDue = this.totalBill - this.advancePayment;
+    if(this.paymentAction.tendered >= amountDue){
        this.emitPayments();
 
     }else{
-      this.toast.showError("Paid amount is not enough.");
+      this.toast.showError("Paid amount is not enough. Amount Due: " + this.fixLength(amountDue));
 
     }
     //alert('confirm payment '+this.paymentRounding);
