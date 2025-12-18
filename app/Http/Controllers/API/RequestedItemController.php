@@ -21,6 +21,7 @@ class RequestedItemController extends Controller
 
         $options = RequestedItem::with(['customer:id,account_title,contact_no', 'branch'])
         ->where('status', 'Active')
+        ->whereIn('order_status', ['pending', 'received'])
         ->where('branch_id',$request->storeID)
         ->where('medicine_name','LIKE','%'.$request->keyword.'%')
         ->limit(20)
@@ -48,6 +49,7 @@ class RequestedItemController extends Controller
         });
 
         $totalRecords  = RequestedItem::where('status','Active')
+        ->whereIn('order_status', ['pending', 'received'])
         ->where('branch_id',$request->storeID)
         ->count();
 
@@ -219,5 +221,27 @@ class RequestedItemController extends Controller
                 'phone' => $customer->contact_no
             ]
         ]);
+    }
+    
+    public function checkRequestedMedicine(Request $request)
+    {
+        $medicineName = $request->medicine_name;
+        $customerId = $request->customer_id;
+        
+        if (!$medicineName) {
+            return response()->json(['is_requested' => false]);
+        }
+        
+        $query = RequestedItem::where('status', 'Active')
+            ->where('order_status', 'pending')
+            ->whereRaw('UPPER(medicine_name) = ?', [strtoupper($medicineName)]);
+        
+        if ($customerId) {
+            $query->where('customer_id', $customerId);
+        }
+        
+        $exists = $query->exists();
+        
+        return response()->json(['is_requested' => $exists]);
     }
 }

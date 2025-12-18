@@ -402,6 +402,11 @@ class PosController extends Controller
                 }
 
 
+                // Mark requested items as delivered when sale completes
+                if($request->type == 'INE' && $request->profile_id) {
+                    $this->markRequestedItemsAsDelivered($itemLists, $request->profile_id);
+                }
+
                 //get the thermal receipt
                 $thermal_printer = Config::get('constant.thermal_printer');
                 
@@ -1792,6 +1797,46 @@ class PosController extends Controller
                         
                         error_log("Notification created for customer: {$customer->account_title} - Medicine: {$requestedItem->medicine_name}");
                     }
+                }
+            }
+        }
+    }
+
+    private function markRequestedItemsAsDelivered($itemLists, $customerId)
+    {
+        foreach($itemLists as $item) {
+            if(empty($item->productName)) continue;
+            
+            // Find matching requested items for this customer (received status)
+            $requestedItems = DB::table('requested_items')
+                ->where('customer_id', $customerId)
+                ->where('order_status', 'received')
+                ->where('status', 'Active')
+                ->whereRaw('UPPER(medicine_name) = ?', [strtoupper($item->productName)])
+                ->get();
+            
+            foreach($requestedItems as $requestedItem) {
+                // Update to delivered
+                DB::table('requested_items')
+                    ->where('id', $requestedItem->id)
+                    ->update([
+                        'order_status' => 'delivered',
+                        'delivered_date' => date('Y-m-d'),
+                        'updated_at' => now()
+                    ]);
+                
+                // Create delivery notification
+                $customer = DB::table('profilers')->where('id', $customerId)->first();
+                if($customer) {
+                    DB::table('notifications')->insert([
+                        'customer_id' => $customerId,
+                        'requested_item_id' => $requestedItem->id,
+                        'message' => "Medicine '{$requestedItem->medicine_name}' has been delivered to {$customer->account_title}. Contact: {$customer->contact_no}",
+                        'type' => 'medicine_delivered',
+                        'status' => 'unread',
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
                 }
             }
         }

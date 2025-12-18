@@ -97,11 +97,11 @@ class ProfilerController extends Controller
 		->orderBy('id','DESC')
 		->get();
 		
-		// Add total advance payment for each customer
+		// Add total advance payment for each customer (exclude delivered)
 		foreach($options as $customer) {
 			$totalAdvance = \DB::table('requested_items')
 				->where('customer_id', $customer->id)
-				->where('order_status', 'received')
+				->whereIn('order_status', ['pending', 'received'])
 				->where('status', 'Active')
 				->sum('advance_payment');
 			$customer->total_advance_payment = $totalAdvance ?? 0;

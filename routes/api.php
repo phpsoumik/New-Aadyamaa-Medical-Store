@@ -168,6 +168,7 @@ Route::post('delete_requested_items', [RequestedItemController::class, 'delete']
 Route::post('search_medicine', [RequestedItemController::class, 'searchMedicine'])->middleware(['auth:sanctum','permission:Requested Items']);
 Route::post('get_customer_phone', [RequestedItemController::class, 'getCustomerPhone'])->middleware(['auth:sanctum','permission:Requested Items']);
 Route::post('store_customer', [RequestedItemController::class, 'storeCustomer'])->middleware(['auth:sanctum','permission:Requested Items']);
+Route::post('check_requested_medicine', [RequestedItemController::class, 'checkRequestedMedicine'])->middleware('auth:sanctum');
 
 
 //Profilers ROUTES
