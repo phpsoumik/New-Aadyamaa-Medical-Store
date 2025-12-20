@@ -403,8 +403,9 @@ class PosController extends Controller
 
 
                 // Mark requested items as delivered when sale completes
+                $deliveredItems = [];
                 if($request->type == 'INE' && $request->profile_id) {
-                    $this->markRequestedItemsAsDelivered($itemLists, $request->profile_id);
+                    $deliveredItems = $this->markRequestedItemsAsDelivered($itemLists, $request->profile_id);
                 }
 
                 //get the thermal receipt
@@ -422,7 +423,8 @@ class PosController extends Controller
                 $response = response()->json([
                     'alert' =>'info',
                     'msg'   =>'Receipt Created Successfully now',
-                    'rno'   => $receiptNo
+                    'rno'   => $receiptNo,
+                    'delivered_items' => $deliveredItems
                 ]);
 
             }
@@ -1804,10 +1806,11 @@ class PosController extends Controller
 
     private function markRequestedItemsAsDelivered($itemLists, $customerId)
     {
+        $deliveredItems = [];
+        
         foreach($itemLists as $item) {
             if(empty($item->productName)) continue;
             
-            // Find matching requested items for this customer (received status)
             $requestedItems = DB::table('requested_items')
                 ->where('customer_id', $customerId)
                 ->where('order_status', 'received')
@@ -1816,7 +1819,6 @@ class PosController extends Controller
                 ->get();
             
             foreach($requestedItems as $requestedItem) {
-                // Update to delivered
                 DB::table('requested_items')
                     ->where('id', $requestedItem->id)
                     ->update([
@@ -1825,7 +1827,6 @@ class PosController extends Controller
                         'updated_at' => now()
                     ]);
                 
-                // Create delivery notification
                 $customer = DB::table('profilers')->where('id', $customerId)->first();
                 if($customer) {
                     DB::table('notifications')->insert([
@@ -1837,8 +1838,17 @@ class PosController extends Controller
                         'created_at' => now(),
                         'updated_at' => now()
                     ]);
+                    
+                    $deliveredItems[] = [
+                        'medicine_name' => $requestedItem->medicine_name,
+                        'customer_name' => $customer->account_title,
+                        'order_date' => $requestedItem->order_date,
+                        'delivered_date' => date('Y-m-d')
+                    ];
                 }
             }
         }
+        
+        return $deliveredItems;
     }
 }

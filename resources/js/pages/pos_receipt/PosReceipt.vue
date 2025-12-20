@@ -1527,6 +1527,19 @@ export default class PosReceipt extends Vue {
          var a = window.open('', '', 'height=500, width=500');
           a?.document.write(document.getElementById('invoiceArea')?.innerHTML);
           a?.print();
+          
+          // Show notification for delivered requested items
+          if(res.delivered_items && res.delivered_items.length > 0) {
+            let notificationMsg = '🔔 Requested Items Delivered:\n\n';
+            res.delivered_items.forEach(item => {
+              notificationMsg += `✓ ${item.medicine_name}\n`;
+              notificationMsg += `   Customer: ${item.customer_name}\n`;
+              notificationMsg += `   Order Date: ${item.order_date}\n`;
+              notificationMsg += `   Status: DELIVERED\n\n`;
+            });
+            alert(notificationMsg);
+          }
+          
           this.clearAll();
           this.openNewRow();
 

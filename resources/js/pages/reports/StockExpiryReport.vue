@@ -92,11 +92,13 @@
                                 step="1"
                                 :max="data.totalUnit"
                                 @input="handleReturnQtyChange(data, $event)"
+                                @focus="$event.target.select()"
                                 :disabled="!isProductSelected(data)"
                             />
                         </template>
                     </Column>
                     <Column field="purchasePrice" header="Purchase Price"></Column>
+                    <Column field="mrp" header="MRP"></Column>
                     <Column field="purchaseDisc" header="Discount"></Column>
                     <Column field="tax1" header="SGST"></Column>
                     <Column field="tax2" header="CGST"></Column>
@@ -149,6 +151,7 @@
           <th style="border: 1px solid #2980b9; padding: 12px 8px; text-align: center; font-size: 12px; font-weight: bold;">BILL DATE</th>
           <th style="border: 1px solid #2980b9; padding: 12px 8px; text-align: center; font-size: 12px; font-weight: bold;">QTY</th>
           <th style="border: 1px solid #2980b9; padding: 12px 8px; text-align: right; font-size: 12px; font-weight: bold;">PRICE</th>
+          <th style="border: 1px solid #2980b9; padding: 12px 8px; text-align: right; font-size: 12px; font-weight: bold;">MRP</th>
           <th style="border: 1px solid #2980b9; padding: 12px 8px; text-align: right; font-size: 12px; font-weight: bold;">DISC%</th>
           <th style="border: 1px solid #2980b9; padding: 12px 8px; text-align: right; font-size: 12px; font-weight: bold;">SGST%</th>
           <th style="border: 1px solid #2980b9; padding: 12px 8px; text-align: right; font-size: 12px; font-weight: bold;">CGST%</th>
@@ -165,6 +168,7 @@
           <td style="border: 1px solid #dee2e6; padding: 10px 8px; text-align: center; font-size: 11px;">{{ item.receiptDate }}</td>
           <td style="border: 1px solid #dee2e6; padding: 10px 8px; text-align: center; font-size: 11px; font-weight: bold; color: #e74c3c;">{{ Math.floor(item.tax3) }}</td>
           <td style="border: 1px solid #dee2e6; padding: 10px 8px; text-align: right; font-size: 11px;">₹{{ parseFloat(item.purchasePrice).toFixed(2) }}</td>
+          <td style="border: 1px solid #dee2e6; padding: 10px 8px; text-align: right; font-size: 11px;">₹{{ parseFloat(item.mrp).toFixed(2) }}</td>
           <td style="border: 1px solid #dee2e6; padding: 10px 8px; text-align: right; font-size: 11px;">{{ parseFloat(item.purchaseDisc).toFixed(1) }}%</td>
           <td style="border: 1px solid #dee2e6; padding: 10px 8px; text-align: right; font-size: 11px;">{{ parseFloat(item.tax1).toFixed(1) }}%</td>
           <td style="border: 1px solid #dee2e6; padding: 10px 8px; text-align: right; font-size: 11px;">{{ parseFloat(item.tax2).toFixed(1) }}%</td>
@@ -173,7 +177,7 @@
       </tbody>
       <tfoot>
         <tr style="background: linear-gradient(135deg, #27ae60, #229954); color: white;">
-          <td colspan="10" style="border: 1px solid #229954; padding: 12px 8px; text-align: right; font-size: 14px; font-weight: bold;">GRAND TOTAL:</td>
+          <td colspan="11" style="border: 1px solid #229954; padding: 12px 8px; text-align: right; font-size: 14px; font-weight: bold;">GRAND TOTAL:</td>
           <td style="border: 1px solid #229954; padding: 12px 8px; text-align: right; font-size: 14px; font-weight: bold;">₹{{ parseFloat(this.getRetTotal()).toFixed(2) }}</td>
         </tr>
       </tfoot>
@@ -407,7 +411,9 @@ export default class StockExpiryReport extends mixins(UtilityOptions) {
             console.log('First Record:', data.record[0]);
             this.resultTitle = data.resultTitle;
             this.lists = data.record.map(item => ({
-                ...item,totalUnit2 :0
+                ...item,
+                totalUnit2: 0,
+                tax3: 0
             }));
 
             this.loading = false;
@@ -418,19 +424,34 @@ export default class StockExpiryReport extends mixins(UtilityOptions) {
     //used to create return voucher
     returnVoucher(){
         console.log('type of selectedProducts: '+typeof this.selectedProducts);
-        let returnList = this.selectedProducts;
+        
+        // Check if products are selected
+        if (!this.selectedProducts || this.selectedProducts.length === 0) {
+            alert('Please select products first');
+            return;
+        }
+        
+        // Check if any return quantity is entered
+        const hasReturnQty = this.selectedProducts.some(item => item.tax3 > 0);
+        if (!hasReturnQty) {
+            alert('Please enter return quantities for selected products');
+            return;
+        }
+        
+        let returnList = this.selectedProducts.filter(item => item.tax3 > 0);
         let supplierID = this.searchFilters.customerID;
         let total = this.getRetTotal();
         
         console.log('Total amount:', total);
         console.log('Supplier ID:', supplierID);
+        console.log('Return List:', returnList);
         
         // Clear previous counter entries
         this.counterEntry = [];
         
-        // Ensure total is a valid number
+        // Ensure total is valid
         if (!total || isNaN(total) || total <= 0) {
-            alert('Please select products and enter return quantities');
+            alert('Invalid total amount. Please check return quantities.');
             return;
         }
         
@@ -462,10 +483,7 @@ export default class StockExpiryReport extends mixins(UtilityOptions) {
         // Check if this is Return Qty field
         if (field === 'tax3') {
             // Check if this product is selected (checkbox checked)
-            const isProductSelected = this.selectedProducts.some(selected => 
-                selected.id === data.id || 
-                (selected.batchNo === data.batchNo && selected.productName === data.productName)
-            );
+            const isProductSelected = this.selectedProducts.some(selected => selected.id === data.id);
             
             if (!isProductSelected) {
                 // Product not selected, don't allow editing Return Qty
@@ -489,10 +507,7 @@ export default class StockExpiryReport extends mixins(UtilityOptions) {
         data[field]=newValue;
         
         // Update selected products if this product is selected
-        const selectedIndex = this.selectedProducts.findIndex(selected => 
-            selected.id === data.id || 
-            (selected.batchNo === data.batchNo && selected.productName === data.productName)
-        );
+        const selectedIndex = this.selectedProducts.findIndex(selected => selected.id === data.id);
         
         if (selectedIndex !== -1) {
             this.selectedProducts[selectedIndex][field] = newValue;
@@ -523,7 +538,7 @@ export default class StockExpiryReport extends mixins(UtilityOptions) {
 
     searchProfiler(event) {
     setTimeout(() => {
-      this.profilerService.searchProfiler(event.query.trim()).then((data) => {
+      this.profilerService.searchSuppliers(event.query.trim()).then((data) => {
         this.profilerList = data.records;
       });
     }, 200);
@@ -537,9 +552,7 @@ export default class StockExpiryReport extends mixins(UtilityOptions) {
 
 
    isProductSelected(data) {
-        return this.selectedProducts.some(selected => 
-            selected.id === data.id || selected.batchNo === data.batchNo
-        );
+        return this.selectedProducts.some(selected => selected.id === data.id);
     }
 
     // THIS IS SOUMIK CODE - Handle return qty as integer
@@ -568,9 +581,7 @@ export default class StockExpiryReport extends mixins(UtilityOptions) {
         data.tax3 = value;
         
         // Update selected products array
-        const selectedIndex = this.selectedProducts.findIndex(selected => 
-            selected.id === data.id || selected.batchNo === data.batchNo
-        );
+        const selectedIndex = this.selectedProducts.findIndex(selected => selected.id === data.id);
         
         if (selectedIndex !== -1) {
             this.selectedProducts[selectedIndex].tax3 = value;
@@ -594,22 +605,21 @@ export default class StockExpiryReport extends mixins(UtilityOptions) {
     }
 
    getRetTotal(){
-    let total =0;
-    //this.$refs.selectedProducts.forEach(element => 
-    if(this.selectedProducts!=null)   
-        console.log(this.selectedProducts.length);
-        console.log( this.selectedProducts.constructor.name);
-
-    this.selectedProducts.forEach((item, index) => {
-        // has access to outer scope `parentMessage`
-        // but `item` and `index` are only available in here
-        console.log(item.subTotal);
-        // console.log(item[index].subTotal)
-        total += Number(item.subTotal);
-    })
-
+    let total = 0;
+    if(this.selectedProducts != null && this.selectedProducts.length > 0) {
+        console.log('Selected Products Count:', this.selectedProducts.length);
+        
+        this.selectedProducts.forEach((item, index) => {
+            // Only count items with return quantity > 0
+            if(item.tax3 > 0) {
+                console.log('Item:', item.itemName, 'Return Qty:', item.tax3, 'SubTotal:', item.subTotal);
+                total += Number(item.subTotal) || 0;
+            }
+        });
+    }
+    
+    console.log('Total Return Amount:', total);
     return Math.round(total);
-
    }
 }
 
