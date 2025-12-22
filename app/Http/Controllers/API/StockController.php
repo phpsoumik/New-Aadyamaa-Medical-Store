@@ -540,7 +540,6 @@ class StockController extends Controller
 				->leftJoin('profilers', 'requested_items.customer_id', '=', 'profilers.id')
 				->where('stocks.branch_id', $branchId)
 				->where('stocks.status', 'Active')
-				->where('stocks.qty', '>', 0)
 				->where(function($query) use ($keyword, $keyword2) {
 					$query->whereRaw("REPLACE(stocks.product_name, ' ', '') LIKE ?", [$keyword2 . '%'])
 						  ->orWhere('stocks.barcode', '=', $keyword2)
@@ -805,19 +804,20 @@ class StockController extends Controller
 	public function searchMedicineForNewItem(Request $request)
 	{
 		$keyword = $request->get('keyword', '');
+		$branchId = Auth::user()->branch_id;
+		
+		error_log("Searching medicine for new item: keyword='$keyword', branch_id=$branchId");
 		
 		if (strlen($keyword) < 2) {
 			return response()->json(['records' => []]);
 		}
 
 		try {
-			$results = [];
-
 			// Get requested medicines (pending orders)
 			$requestedMedicines = DB::table('requested_items')
 				->where('order_status', 'pending')
 				->where('status', 'Active')
-				->where('medicine_name', 'LIKE', '%' . $keyword . '%')
+				->whereRaw('UPPER(medicine_name) LIKE ?', ['%' . strtoupper($keyword) . '%'])
 				->select(
 					'medicine_name',
 					DB::raw("1 as is_requested")
@@ -826,10 +826,11 @@ class StockController extends Controller
 				->limit(10)
 				->get();
 
-			// Get existing product names from stocks
+			// Get existing product names from stocks (NO qty filter for purchasing)
 			$existingProducts = DB::table('stocks')
-				->where('product_name', 'LIKE', '%' . $keyword . '%')
+				->whereRaw('UPPER(product_name) LIKE ?', ['%' . strtoupper($keyword) . '%'])
 				->where('status', 'Active')
+				->where('branch_id', $branchId)
 				->select(
 					'product_name as medicine_name',
 					DB::raw("0 as is_requested")
@@ -837,6 +838,8 @@ class StockController extends Controller
 				->groupBy('product_name')
 				->limit(10)
 				->get();
+
+			error_log("Found " . $requestedMedicines->count() . " requested medicines and " . $existingProducts->count() . " existing products");
 
 			// Merge results - requested items first
 			$allResults = $requestedMedicines->concat($existingProducts);
